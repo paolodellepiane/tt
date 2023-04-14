@@ -40,29 +40,29 @@ pub struct ScpArgs {
     pub to: Option<String>,
 }
 
-fn get_hosts(cache_path: impl AsRef<Path>) -> Result<Vec<Host>> {
-    let hosts = if cache_path.as_ref().exists() {
-        read(&cache_path)?
+fn get_hosts(s: &Settings) -> Result<Vec<Host>> {
+    let hosts = if s.cache_path.exists() {
+        read(&s.cache_path)?
     } else {
         let hosts = Command::new("tsh").args(COMMON_TSH_ARGS).args(["ls", "-f", "json"]).output()?.stdout;
-        std::fs::write(cache_path, &hosts)?;
+        std::fs::write(&s.cache_path, &hosts)?;
         hosts
     };
     let hosts: Hosts = serde_json::from_slice(&hosts)?;
     Ok(hosts)
 }
 
-fn add_recents(mut hosts: Vec<Host>, history_path: impl AsRef<Path>) -> Vec<Host> {
-    let recents = History::load(history_path).intersect(&hosts).entries;
+fn add_recents(mut hosts: Vec<Host>, s: &Settings) -> Vec<Host> {
+    let recents = History::load(&s.history_path).intersect(&hosts).entries;
     hosts.retain(|x| !recents.contains(x));
     [recents, hosts].concat()
 }
 
-fn select_host(history_path: impl AsRef<Path>, cache_path: impl AsRef<Path>, start_value: &str) -> Result<Host> {
-    let hosts = get_hosts(&cache_path)?;
-    let hosts = add_recents(hosts, &history_path);
-    let host = select_teleport_host(&SelectArgs { hosts, start_value: start_value.into() })?;
-    History::load(&history_path).update(&host);
+fn select_host(s: &Settings) -> Result<Host> {
+    let hosts = get_hosts(s)?;
+    let hosts = add_recents(hosts, s);
+    let host = select_teleport_host(&SelectArgs { hosts, start_value: s.start_value.clone() })?;
+    History::load(&s.history_path).update(&host);
     Ok(host)
 }
 
@@ -194,14 +194,14 @@ pub enum Container {
 // }
 
 pub fn ssh(s: &Settings) -> Result<()> {
-    let host = select_host(&s.history_path, &s.cache_path, &s.start_value)?;
+    let host = select_host(s)?;
     let name = host.name();
     Command::new("tsh").args(COMMON_TSH_ARGS).args(["ssh", &f!("ubuntu@{name}")]).status()?;
     Ok(())
 }
 
 pub fn exec(s: &Settings, command: &str) -> Result<()> {
-    let host = select_host(&s.history_path, &s.cache_path, &s.start_value)?;
+    let host = select_host(s)?;
     let name = host.name();
     Command::new("tsh").args(COMMON_TSH_ARGS).args(["ssh", &f!("ubuntu@{name}"), command]).status()?;
     Ok(())
@@ -209,7 +209,7 @@ pub fn exec(s: &Settings, command: &str) -> Result<()> {
 
 pub fn code(s: &Settings) -> Result<()> {
     append_tsh_to_ssh_config()?;
-    let name = &select_host(&s.history_path, &s.cache_path, &s.start_value)?.ssh_name();
+    let name = &select_host(s)?.ssh_name();
     Command::new(&s.code_cmd).args(["--folder-uri", &f!("vscode-remote://ssh-remote+ubuntu@{name}/")]).status()?;
     Ok(())
 }
@@ -241,7 +241,7 @@ pub fn append_tsh_to_ssh_config() -> Result<()> {
 
 pub fn get_file(s: &Settings) -> Result<()> {
     append_tsh_to_ssh_config()?;
-    let host = select_host(&s.history_path, &s.cache_path, &s.start_value)?;
+    let host = select_host(s)?;
     let path = browse_remote(&host)?;
     scp_execute(&path, ".")?;
     Ok(())
@@ -250,7 +250,7 @@ pub fn get_file(s: &Settings) -> Result<()> {
 pub fn put_file(s: &Settings) -> Result<()> {
     append_tsh_to_ssh_config()?;
     let path = browse_local(s)?;
-    let host = select_host(&s.history_path, &s.cache_path, &s.start_value)?;
+    let host = select_host(s)?;
     let name = host.name();
     scp_execute(&path, &f!("ubuntu@{name}:"))?;
     Ok(())
