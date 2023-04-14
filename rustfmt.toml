@@ -1,0 +1,7 @@
+indent_style = "Visual"
+reorder_imports = true
+chain_width = 120
+max_width = 120
+single_line_if_else_max_width = 120
+struct_lit_width = 120
+match_arm_blocks = false
