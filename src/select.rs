@@ -53,7 +53,7 @@ pub struct SelectArgs {
 
 pub fn select_teleport_host(SelectArgs { hosts, start_value }: &SelectArgs) -> Result<Host> {
     let width = hosts.iter().map(|x| x.spec.hostname.len()).max().unwrap_or(20);
-    let values = hosts.iter().map(|h| f!("{:width$} [{h}]", h.spec.hostname.clone(),)).collect_vec();
+    let values = hosts.iter().map(|h| f!("{:width$} [{h}]", h.spec.hostname.clone())).collect_vec();
     let idx = select("", &values, start_value)?;
     let selected = hosts.get(idx).unwrap();
     Ok(selected.clone())

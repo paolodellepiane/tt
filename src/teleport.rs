@@ -29,13 +29,15 @@ impl Host {
 
 impl Display for Host {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let display = self
-            .metadata
-            .labels
-            .iter()
-            .filter(|(k, _)| !k.starts_with("teleport.internal"))
-            .map(|(k, v)| format!("{k}: {v}"))
-            .join(", ");
+        let display = self.metadata
+                          .labels
+                          .iter()
+                          .filter(|(k, _)| k.starts_with("env") || k.starts_with("aws/Name"))
+                          .map(|(k, v)| {
+                              let k = if k == "aws/Name" { "name" } else { k };
+                              format!("{k}: {v}")
+                          })
+                          .join(", ");
         f.write_str(&display)
     }
 }
@@ -49,6 +51,7 @@ impl PartialEq for Host {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Metadata {
     pub name: String,
+    #[serde(default)]
     pub labels: Labels,
     pub expires: String,
     pub id: f64,

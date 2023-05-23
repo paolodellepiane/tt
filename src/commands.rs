@@ -251,8 +251,7 @@ pub fn put_file(s: &Settings) -> Result<()> {
     append_tsh_to_ssh_config()?;
     let path = browse_local(s)?;
     let host = select_host(s)?;
-    let name = host.name();
-    scp_execute(&path, &f!("ubuntu@{name}:"))?;
+    scp_execute(&path, &f!("ubuntu@{}.aws:", &host.name()))?;
     Ok(())
 }
 
@@ -379,14 +378,13 @@ fn browse_remote(host: &Host) -> Result<String> {
 // }
 
 pub fn read_dir(path: impl AsRef<Path>) -> Result<Vec<Entry>> {
-    let files = std::fs::read_dir(path)?
-        .filter_map(Result::ok)
-        .map(Entry::from)
-        .sorted_by_key(|x| {
-            let p = if x.is_dir { "a" } else { "b" };
-            f!("{p}{}", x.file_name)
-        })
-        .collect();
+    let files = std::fs::read_dir(path)?.filter_map(Result::ok)
+                                        .map(Entry::from)
+                                        .sorted_by_key(|x| {
+                                            let p = if x.is_dir { "a" } else { "b" };
+                                            f!("{p}{}", x.file_name)
+                                        })
+                                        .collect();
     Ok(files)
 }
 
@@ -437,26 +435,21 @@ pub struct Entry {
 
 impl From<DirEntry> for Entry {
     fn from(e: DirEntry) -> Self {
-        Self {
-            path: e.path(),
-            file_name: e.file_name().to_string_lossy().to_string(),
-            is_dir: e.path().is_dir(),
-            is_selected: false,
-        }
+        Self { path: e.path(),
+               file_name: e.file_name().to_string_lossy().to_string(),
+               is_dir: e.path().is_dir(),
+               is_selected: false }
     }
 }
 
 fn parse_ls_output(ls_output: &str, base_path: &impl AsRef<Path>) -> Result<Vec<Entry>> {
-    let res = ls_output
-        .lines()
-        .map(|x| Entry {
-            file_name: x.into(),
-            path: base_path.as_ref().join(x),
-            is_dir: x.ends_with('/'),
-            is_selected: false,
-        })
-        .sorted_by_key(|x| if x.is_dir { "a" } else { "b" })
-        .collect();
+    let res = ls_output.lines()
+                       .map(|x| Entry { file_name: x.into(),
+                                        path: base_path.as_ref().join(x),
+                                        is_dir: x.ends_with('/'),
+                                        is_selected: false })
+                       .sorted_by_key(|x| if x.is_dir { "a" } else { "b" })
+                       .collect();
     Ok(res)
 }
 
