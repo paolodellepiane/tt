@@ -68,9 +68,9 @@ fn select_host(s: &Settings) -> Result<Host> {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    // /// Copy file/folder to/from remote
-    // #[command(arg_required_else_help = false, after_help("Folder path not ending with '/' will copy the directory including contents, rather than only the contents of the directory"))]
-    // Cp(ScpArgs),
+    /// Copy file/folder to/from remote
+    #[command(arg_required_else_help = false, after_help("Folder path not ending with '/' will copy the directory including contents, rather than only the contents of the directory"))]
+    Cp(ScpArgs),
     // /// Create a tunnel for a predefined service
     // #[command(arg_required_else_help = true)]
     // Service {
@@ -91,10 +91,16 @@ pub enum Commands {
     Code,
     /// Get file
     #[command()]
-    Get,
+    Get {
+        /// Remote file to get
+        file: Option<String>,
+    },
     /// Put file
     #[command()]
-    Put,
+    Put {
+        /// Local file to put
+        file: Option<String>,
+    },
     /// Get windows event logs
     #[command()]
     EventLog,
@@ -161,37 +167,38 @@ pub enum Container {
 //     Self::tunnel_from_ports(TunnelArgs { local, remote }, hosts)
 // }
 
-// pub fn cp(ScpArgs { from, to }: &ScpArgs, hosts: &Hosts) -> Result<()> {
-//     fn expand_remote(s: &str, hosts: &Hosts, is_from: bool) -> Result<String> {
-//         if let Some((start_value, path)) = s.rsplit_once(':') {
-//             if is_from && path.is_empty() {
-//                 bail!("FROM must contain a path to file or folder")
-//             }
-//             let hosts =
-//                 &Hosts { start_value: start_value.to_string(), hosts: hosts.hosts.clone(), bastion: String::new() };
-//             let name = select_profile_then_host(hosts)?;
-//             let res = f!("{name}:{path}");
-//             Ok(res)
-//         } else {
-//             Ok(String::from(s))
-//         }
-//     }
-//     let mut to = to.to_owned().unwrap_or_default();
-//     if to.is_empty() {
-//         to = if from.contains(':') { "." } else { ":" }.to_owned() // want to copy from remote to local else from local to remote
-//     }
-//     if from.contains(':') && to.contains(':') {
-//         bail!("Both 'From' and 'To' contain ':'. Use ':' for remote host only")
-//     }
-//     if !from.contains(':') && !to.contains(':') {
-//         bail!("Either 'From' or 'To' must contain ':'. Use ':' for remote host only")
-//     }
-//     let from = expand_remote(from, hosts, true)?;
-//     let to = expand_remote(&to, hosts, false)?;
-//     p!("Copying from {from} to {to}...");
-//     Command::new("scp").args(COMMON_SSH_ARGS).args(["-r", &from, &to]).status()?;
-//     Ok(())
-// }
+pub fn cp(s: &Settings, ScpArgs { from, to }: &ScpArgs) -> Result<()> {
+    fn expand_remote(s: &Settings, start_value: &str, is_from: bool) -> Result<String> {
+        let p = s.clone();
+        if let Some((start_value, path)) = start_value.rsplit_once(':') {
+            if is_from && path.is_empty() {
+                bail!("FROM must contain a path to file or folder")
+            }
+            s.start_value = start_value.to_string();
+            let host = select_host(&s)?;
+            let name = host.name();
+            let res = f!("{name}:{path}");
+            Ok(res)
+        } else {
+            Ok(String::from(start_value))
+        }
+    }
+    let mut to = to.to_owned().unwrap_or_default();
+    if to.is_empty() {
+        to = if from.contains(':') { "." } else { ":" }.to_owned() // want to copy from remote to local else from local to remote
+    }
+    if from.contains(':') && to.contains(':') {
+        bail!("Both 'From' and 'To' contain ':'. Use ':' for remote host only")
+    }
+    if !from.contains(':') && !to.contains(':') {
+        bail!("Either 'From' or 'To' must contain ':'. Use ':' for remote host only")
+    }
+    let from = expand_remote(s, from, true)?;
+    let to = expand_remote(s, &to, false)?;
+    p!("Copying from {from} to {to}...");
+    Command::new("tsh").args(COMMON_TSH_ARGS).args(["scp", "-r", &from, &to]).status()?;
+    Ok(())
+}
 
 pub fn ssh(s: &Settings) -> Result<()> {
     let host = select_host(s)?;
@@ -239,17 +246,17 @@ pub fn append_tsh_to_ssh_config() -> Result<()> {
     Ok(())
 }
 
-pub fn get_file(s: &Settings) -> Result<()> {
+pub fn get_file(s: &Settings, file: &Option<String>) -> Result<()> {
     append_tsh_to_ssh_config()?;
     let host = select_host(s)?;
-    let path = browse_remote(&host)?;
+    let path = if let Some(file) = file { file.to_owned() } else { browse_local(s)? };
     scp_execute(&path, ".")?;
     Ok(())
 }
 
-pub fn put_file(s: &Settings) -> Result<()> {
+pub fn put_file(s: &Settings, file: &Option<String>) -> Result<()> {
     append_tsh_to_ssh_config()?;
-    let path = browse_local(s)?;
+    let path = if let Some(file) = file { file.to_owned() } else { browse_local(s)? };
     let host = select_host(s)?;
     scp_execute(&path, &f!("ubuntu@{}.aws:", &host.name()))?;
     Ok(())

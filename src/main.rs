@@ -15,10 +15,12 @@ fn main() -> Result<()> {
     let settings = Settings::new()?;
     match &settings.args.command {
         Some(cmd) => match cmd {
+            Commands::Cp(args) => commands::cp(&settings, args),
             Commands::Exec { command } => commands::exec(&settings, command),
             Commands::Code => commands::code(&settings),
-            Commands::Get => commands::get_file(&settings),
-            Commands::Put => commands::put_file(&settings),
+            Commands::Get { file } => commands::get_file(&settings, file),
+            Commands::Put { file } => commands::put_file(&settings, file),
+            Commands::Put { file } => commands::put_file(&settings, file),
             Commands::EventLog => todo!(),
             Commands::Config => commands::append_tsh_to_ssh_config(),
             // Commands::Container { container } => todo!(),
