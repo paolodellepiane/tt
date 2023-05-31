@@ -168,36 +168,37 @@ pub enum Container {
 // }
 
 pub fn cp(s: &Settings, ScpArgs { from, to }: &ScpArgs) -> Result<()> {
-    fn expand_remote(s: &Settings, start_value: &str, is_from: bool) -> Result<String> {
-        let p = s.clone();
-        if let Some((start_value, path)) = start_value.rsplit_once(':') {
-            if is_from && path.is_empty() {
-                bail!("FROM must contain a path to file or folder")
-            }
-            s.start_value = start_value.to_string();
-            let host = select_host(&s)?;
-            let name = host.name();
-            let res = f!("{name}:{path}");
-            Ok(res)
-        } else {
-            Ok(String::from(start_value))
-        }
-    }
-    let mut to = to.to_owned().unwrap_or_default();
-    if to.is_empty() {
-        to = if from.contains(':') { "." } else { ":" }.to_owned() // want to copy from remote to local else from local to remote
-    }
-    if from.contains(':') && to.contains(':') {
-        bail!("Both 'From' and 'To' contain ':'. Use ':' for remote host only")
-    }
-    if !from.contains(':') && !to.contains(':') {
-        bail!("Either 'From' or 'To' must contain ':'. Use ':' for remote host only")
-    }
-    let from = expand_remote(s, from, true)?;
-    let to = expand_remote(s, &to, false)?;
-    p!("Copying from {from} to {to}...");
-    Command::new("tsh").args(COMMON_TSH_ARGS).args(["scp", "-r", &from, &to]).status()?;
-    Ok(())
+    todo!();
+    // fn expand_remote(s: &Settings, start_value: &str, is_from: bool) -> Result<String> {
+    //     let p = s.clone();
+    //     if let Some((start_value, path)) = start_value.rsplit_once(':') {
+    //         if is_from && path.is_empty() {
+    //             bail!("FROM must contain a path to file or folder")
+    //         }
+    //         s.start_value = start_value.to_string();
+    //         let host = select_host(&s)?;
+    //         let name = host.name();
+    //         let res = f!("{name}:{path}");
+    //         Ok(res)
+    //     } else {
+    //         Ok(String::from(start_value))
+    //     }
+    // }
+    // let mut to = to.to_owned().unwrap_or_default();
+    // if to.is_empty() {
+    //     to = if from.contains(':') { "." } else { ":" }.to_owned() // want to copy from remote to local else from local to remote
+    // }
+    // if from.contains(':') && to.contains(':') {
+    //     bail!("Both 'From' and 'To' contain ':'. Use ':' for remote host only")
+    // }
+    // if !from.contains(':') && !to.contains(':') {
+    //     bail!("Either 'From' or 'To' must contain ':'. Use ':' for remote host only")
+    // }
+    // let from = expand_remote(s, from, true)?;
+    // let to = expand_remote(s, &to, false)?;
+    // p!("Copying from {from} to {to}...");
+    // Command::new("tsh").args(COMMON_TSH_ARGS).args(["scp", "-r", &from, &to]).status()?;
+    // Ok(())
 }
 
 pub fn ssh(s: &Settings) -> Result<()> {
@@ -217,7 +218,9 @@ pub fn exec(s: &Settings, command: &str) -> Result<()> {
 pub fn code(s: &Settings) -> Result<()> {
     append_tsh_to_ssh_config()?;
     let name = &select_host(s)?.ssh_name();
-    Command::new(&s.code_cmd).args(["--folder-uri", &f!("vscode-remote://ssh-remote+ubuntu@{name}/")]).status()?;
+    Command::new(&s.code_cmd).args(["--folder-uri",
+                                    &f!("vscode-remote://ssh-remote+ubuntu@{name}/home/ubuntu")])
+                             .status()?;
     Ok(())
 }
 
